@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>GRPC Staff Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0F1A;
+    --surface:#111A28;
+    --surface-2:#16212F;
+    --border:#243245;
+    --text:#E8EDF4;
+    --text-dim:#8DA0B8;
+    --text-faint:#5E7185;
+    --gold:#C9A24A;
+    --danger:#C0473D;
+    --info:#3E7CB1;
+    --success:#4C8C6B;
+    --font-display:'Oswald',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    line-height: 1.7;
+  }
+  .app-container { display: flex; flex: 1; }
+  .sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+  }
+  .sidebar h1 {
+    font-family: var(--font-display);
+    color: var(--gold);
+    font-size: 1.8rem;
+    margin-top: 0;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+  }
+  .search-wrap { margin-bottom: 20px; position: relative; }
+  #searchInput {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-family: var(--font-body);
+  }
+  #searchResults {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-top: 5px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 100;
+  }
+  .search-item {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .search-item:hover { background: var(--surface-2); color: var(--gold); }
+  .nav-link {
+    display: block;
+    padding: 10px 15px;
+    color: var(--text-dim);
+    text-decoration: none;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    transition: 0.2s;
+    font-weight: 500;
+  }
+  .nav-link:hover { background: var(--surface-2); color: var(--gold); }
+  
+  .content { flex: 1; padding: 50px; max-width: 1000px; margin: 0 auto; }
+  .section { margin-bottom: 60px; scroll-margin-top: 40px; }
+  
+  h2 { font-family: var(--font-display); font-size: 2.2rem; color: var(--gold); border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 20px;}
+  h3 { font-family: var(--font-display); font-size: 1.5rem; color: var(--info); margin-top: 30px; }
+  p { margin-bottom: 1rem; color: var(--text-dim); }
+  ul { color: var(--text-dim); margin-bottom: 20px; padding-left: 20px; }
+  li { margin-bottom: 10px; }
+  strong { color: var(--text); }
+  
+  .code-block-wrap { position: relative; margin: 20px 0; }
+  pre {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 15px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    color: var(--success);
+    font-size: 0.95rem;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: 0.2s;
+  }
+  .copy-btn:hover { background: var(--border); color: var(--text); }
+  .copy-btn.copied { background: var(--success); color: #fff; border-color: var(--success); }
+
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; background: var(--surface); border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+  th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--surface-2); color: var(--gold); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem; }
+  tr:last-child td { border-bottom: none; }
+  .tag { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; font-family: var(--font-mono); }
+  .tag-warn { background: rgba(201, 162, 74, 0.15); color: var(--gold); border: 1px solid var(--gold); }
+  .tag-kick { background: rgba(62, 124, 177, 0.15); color: var(--info); border: 1px solid var(--info); }
+  .tag-ban { background: rgba(192, 71, 61, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="sidebar">
+    <h1>GRPC Staff Guide</h1>
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Search guide (Press '/')">
+      <div id="searchResults" hidden></div>
+    </div>
+    <nav>
+      <a href="#intro" class="nav-link">1. Introduction & Mindset</a>
+      <a href="#coc" class="nav-link">2. Code of Conduct</a>
+      <a href="#modcalls" class="nav-link">3. Modcall Procedures</a>
+      <a href="#punishments" class="nav-link">4. Punishment Matrix</a>
+      <a href="#commands" class="nav-link">5. Moderation Commands</a>
+      <a href="#exploits" class="nav-link">6. Exploiter Protocols</a>
+    </nav>
+  </div>
+
+  <div class="content">
+    
+    <div id="intro" class="section">
+      <h2>1. Introduction & Core Mindset</h2>
+      <p>Welcome to the Grand River Police Department / ERLC Roleplay Community (GRPC) Staff Team. By accepting this rank, you have chosen to take on the responsibility of curating an immersive, safe, and professional environment for hundreds of players. Your role is not to be a dictator, but a facilitator of excellent roleplay.</p>
+      <p>The ERLC community relies entirely on the consistency and professionalism of its staff members. Players will test your patience, rule-breakers will attempt to manipulate you, and intense roleplay situations will blur the lines of the rules. Your core mindset must always remain <strong>analytical, impartial, and calm</strong>. You are the definitive authority in the server, meaning you must lead by example. If a staff member loses their temper, the server loses its integrity.</p>
+      <p>This handbook is your absolute source of truth. Any deviation from these protocols without explicit permission from the Management or Director team may result in internal disciplinary action, up to and including termination and a community blacklist. Read it, understand it, and enforce it.</p>
+    </div>
+
+    <div id="coc" class="section">
+      <h2>2. Staff Code of Conduct (CoC)</h2>
+      <p>The following mandates are strictly enforced. Ignorance of these protocols is not a valid defense for violating them.</p>
+      <div id="coc-container"></div>
+    </div>
+
+    <div id="modcalls" class="section">
+      <h2>3. The Modcall Procedure (Step-by-Step)</h2>
+      <p>Handling in-game tickets (Modcalls) is your primary duty. A poorly handled modcall leads to player frustration and accusations of admin abuse. You must follow this standardized procedure for every single ticket you answer, regardless of how minor the issue seems.</p>
+      
+      <h3>Phase 1: Claiming & Assessment</h3>
+      <ul>
+        <li><strong>Never blind-teleport:</strong> Always claim the ticket via the ERLC Modcall UI before engaging. Teleporting to a player without claiming their ticket causes double-staffing and confusion.</li>
+        <li><strong>Read the report thoroughly:</strong> Check the context. Is it an active scenario? Are they reporting RDM? Prepare yourself mentally for what you are about to walk into.</li>
+        <li><strong>On-Duty status:</strong> Ensure you are completely out of an active roleplay scenario yourself. You cannot moderate a server while actively participating in a bank robbery or traffic stop. If you are deeply invested in a scene, do not claim the ticket.</li>
+      </ul>
+
+      <h3>Phase 2: Professional Engagement</h3>
+      <p>When you teleport to the user, immediately pause the surrounding RP if necessary, or bring the reporting user to an isolated area (like a rooftop or empty field) to avoid disrupting others.</p>
+      <p>Use a standardized greeting. Do not use slang. Do not type "sup" or "what do u need".</p>
+      <div class="code-block-wrap">
+        <pre>Greetings! I am [Rank] [Your Name] with GRPC Moderation. How can I assist you with your roleplay experience today?</pre>
+        <button class="copy-btn">Copy Script</button>
+      </div>
+
+      <h3>Phase 3: Investigation & Evidence (The "No Clip, No Action" Rule)</h3>
+      <p>Players will frequently lie to get others banned. You are an investigator first and an enforcer second. Listen to the reporting player's claim, then verify it using the server's backend tools.</p>
+      <ul>
+        <li><strong>Check the Logs:</strong> Use the ERLC command <code>:logs</code>. Check the combat logs to verify who shot first. Check the vehicle logs for VDM. Check the chat logs for toxicity.</li>
+        <li><strong>Requesting Clips:</strong> If the situation is a "He-Said/She-Said" scenario (e.g., Fail RP, unrealistic driving, or combat logging) and the in-game logs do not paint a clear picture, you <strong>must</strong> request a video clip. If the reporting player cannot provide a clip, tell them: <em>"Unfortunately, without video evidence or clear server logs, I cannot issue a punishment at this time. Please use a clipping software like Medal or Shadowplay for future incidents."</em></li>
+        <li><strong>Isolate the Accused:</strong> If evidence is provided, use <code>:bring [username]</code> to bring the accused to your isolated location. Explain the situation cleanly. Example: <em>"You have been brought here due to a report of RDM. The logs confirm you killed [Player] without prior RP engagement."</em></li>
+      </ul>
+
+      <h3>Phase 4: Resolution & Logging</h3>
+      <p>Once you have confirmed a rule break, issue the punishment strictly aligning with the Punishment Matrix. Do not debate the rules with the rule-breaker. Once you state the verdict, execute the command. After the punishment is issued, return the reporting player to their original location using <code>:return [username]</code>.</p>
+      <p>Finally, you must log the interaction in the designated Discord channel using the required format to ensure your quotas are tracked.</p>
+    </div>
+
+    <div id="punishments" class="section">
+      <h2>4. Punishment Matrix</h2>
+      <p>This table outlines the exact progression of disciplinary actions for standard infractions. You may not skip steps (e.g., banning someone on their first offense for a minor infraction) unless authorized by a Server Manager. Repeat offenses are tracked via discord logs.</p>
+      <div id="punishment-container"></div>
+      <p><em>* Note on "Warns": A verbal warning in chat is not sufficient. You must use the official <code>:warn [user] [reason]</code> command so it logs in the ERLC system.</em></p>
+    </div>
+
+    <div id="commands" class="section">
+      <h2>5. Moderation Command Syntax</h2>
+      <p>Using commands correctly is vital. Misusing commands can break the server's immersion or accidentally punish the wrong player. Always double-check usernames.</p>
+      
+      <h3>Communication Commands</h3>
+      <ul>
+        <li><strong>Private Message:</strong> <code>:pm [username] [message]</code> — Used to speak to a specific player without teleporting to them. Good for minor reminders (e.g., <em>":pm Player123 Please change your avatar, it violates Roblox TOS."</em>).</li>
+        <li><strong>Hint Message:</strong> <code>:h [message]</code> — Displays a small banner at the top of the screen. Used for server-wide minor updates (e.g., <em>":h The server will be restarting in 10 minutes."</em>).</li>
+        <li><strong>Server Message:</strong> <code>:m [message]</code> — A massive, screen-blocking message. <strong>Use sparingly.</strong> Only use this for critical announcements like massive RP events or severe server-wide warnings.</li>
+      </ul>
+
+      <h3>Disciplinary Commands</h3>
+      <p>When issuing a punishment, the reason MUST be detailed. Never put "breaking rules" or "rdm". Follow the standard formatting: <strong>[Infraction] | [Brief Detail] | [Your Name]</strong>.</p>
+      
+      <div class="code-block-wrap">
+        <pre>:warn JohnDoe123 RDM | Shot police at spawn without engagement | Mod Smith</pre>
+        <button class="copy-btn">Copy Warn</button>
+      </div>
+      <div class="code-block-wrap">
+        <pre>:kick JohnDoe123 VDM (2nd Offense) | Ramming civilian cars at gas station | Mod Smith</pre>
+        <button class="copy-btn">Copy Kick</button>
+      </div>
+      <div class="code-block-wrap">
+        <pre>:ban JohnDoe123 24h LTAP | Logged out during active pursuit | Mod Smith</pre>
+        <button class="copy-btn">Copy Ban</button>
+      </div>
+    </div>
+
+    <div id="exploits" class="section">
+      <h2>6. Exploiter Protocols</h2>
+      <p>Exploiters (hackers) attempt to ruin the server maliciously using third-party software (aimbots, speedhacks, car-flingers, noclip). Handling them requires a different protocol than a standard rule-breaker.</p>
+      <ul>
+        <li><strong>Do not interact:</strong> Never speak to an exploiter. Never threaten them with a ban. They are seeking attention. Bringing attention to them in the chat gives them what they want.</li>
+        <li><strong>Invisible Spectate:</strong> Use the ERLC spectate tools or fly high into the sky and use a sniper scope/freecam to record them. You MUST get a video clip of them exploiting before you ban them to protect yourself from false-ban appeals.</li>
+        <li><strong>Immediate Permanent Ban:</strong> Do not warn. Do not kick. Issue a permanent server ban immediately using <code>:ban [username] 0 Exploiting | [Your Name]</code>.</li>
+        <li><strong>Discord Escalation:</strong> If the exploiter is crashing the server, instantly ping the Management team in the Discord emergency channel.</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ---------- Data Models ----------
+  const cocRules = [
+    {
+      title: "1. Unwavering Professionalism & Neutrality",
+      description: "As a staff member of the GRPC server, you represent the entire community. Professionalism is not optional; it is mandatory. You must maintain a calm, objective demeanor even when players are highly aggressive, toxic, or disrespectful. Profanity, slurs, or engaging in petty arguments in-game or within Discord is strictly prohibited. Furthermore, you must remain entirely impartial. You are forbidden from answering modcalls involving your friends or specific roleplay factions to avoid any bias."
+    },
+    {
+      title: "2. Zero Tolerance for Administrative Abuse",
+      description: "Administrative commands (:fly, :god, :bring, :to, vehicle spawning, etc.) are granted solely for moderation. Using these tools to gain an advantage in roleplay, assist friends, travel the map faster while off-duty, or disrupt players is classified as Admin Abuse. When you are off-duty, you play exactly like a regular civilian. When you are on-duty, you do not participate in RP scenarios. There is no gray area."
+    },
+    {
+      title: "3. Absolute Confidentiality",
+      description: "Trust is the foundation of our staff team. Any information discussed in staff-only Discord channels, voice chats, or direct messages regarding server operations, unreleased updates, player investigations, or disciplinary actions is strictly confidential. Leaking screenshots or gossiping about staff matters with regular players will result in immediate removal and a permanent community blacklist."
+    },
+    {
+      title: "4. Quotas and In-Game Activity Standards",
+      description: "Consistency keeps the server clean. All staff members are expected to fulfill their weekly modcall and playtime quotas as defined by the Management team. You must log your duties properly in the designated Discord channel. If you are unable to meet your quota due to real-life obligations, you must submit an Inactivity Notice (LOA) at least 24 hours in advance."
+    }
+  ];
+
+  const punishments = [
+    {
+      infraction: "Random Deathmatch (RDM)",
+      description: "Killing another player without a valid, prior roleplay reason or initiation.",
+      firstOffense: "Warn",
+      secondOffense: "Kick",
+      thirdOffense: "24h Ban"
+    },
+    {
+      infraction: "Vehicle Deathmatch (VDM)",
+      description: "Using a vehicle as a weapon to intentionally run over players without a valid RP reason.",
+      firstOffense: "Warn",
+      secondOffense: "Kick",
+      thirdOffense: "24h Ban"
+    },
+    {
+      infraction: "Fail Roleplay (FRP)",
+      description: "Performing actions that are entirely unrealistic (e.g., driving a sports car up a mountain, pulling a heavy rifle out of thin air).",
+      firstOffense: "Warn",
+      secondOffense: "Kick",
+      thirdOffense: "3-Day Ban"
+    },
+    {
+      infraction: "Combat Logging / LTAP",
+      description: "Leaving the server to avoid an active arrest, punishment, or staff sit.",
+      firstOffense: "24h Ban",
+      secondOffense: "3-Day Ban",
+      thirdOffense: "Perm Ban"
+    },
+    {
+      infraction: "Severe Toxicity / Slurs",
+      description: "Using racial, homophobic, or extreme derogatory slurs in chat, voice, or usernames.",
+      firstOffense: "Perm Ban",
+      secondOffense: "N/A",
+      thirdOffense: "N/A"
+    },
+    {
+      infraction: "Exploiting / Hacking",
+      description: "Using third-party software, scripts, or GUIs to gain an unfair advantage.",
+      firstOffense: "Perm Ban",
+      secondOffense: "N/A",
+      thirdOffense: "N/A"
+    }
+  ];
+
+  // ---------- Render Functions ----------
+  function renderPunishmentTable(){
+    var container = document.getElementById('punishment-container');
+    if(!container) return;
+    var html = '<table><tr><th>Infraction</th><th>Description</th><th>1st Offense</th><th>2nd Offense</th><th>3rd Offense</th></tr>';
+    for(var i=0; i<punishments.length; i++){
+      var p = punishments[i];
+      html += '<tr>' +
+              '<td><strong>' + p.infraction + '</strong></td>' +
+              '<td>' + p.description + '</td>' +
+              '<td><span class="tag tag-warn">' + p.firstOffense + '</span></td>' +
+              '<td><span class="tag tag-kick">' + p.secondOffense + '</span></td>' +
+              '<td><span class="tag tag-ban">' + p.thirdOffense + '</span></td>' +
+              '</tr>';
+    }
+    html += '</table>';
+    container.innerHTML = html;
+  }
+
+  function renderCoC(){
+    var container = document.getElementById('coc-container');
+    if(!container) return;
+    var html = '';
+    for(var i=0; i<cocRules.length; i++){
+      html += '<h3>' + cocRules[i].title + '</h3><p>' + cocRules[i].description + '</p>';
+    }
+    container.innerHTML = html;
+  }
+
+  // ---------- Search Logic ----------
+  var searchData = [];
+  function buildSearchIndex(){
+    var sections = document.querySelectorAll('.section');
+    for(var i=0; i<sections.length; i++){
+      var sec = sections[i];
+      var h2 = sec.querySelector('h2');
+      if(!h2) continue;
+      searchData.push({
+        id: sec.id,
+        title: h2.textContent,
+        text: sec.textContent.toLowerCase()
+      });
+    }
+  }
+
+  var searchInput = document.getElementById('searchInput');
+  var searchResults = document.getElementById('searchResults');
+
+  if(searchInput && searchResults){
+    searchInput.addEventListener('input', function(e){
+      var q = e.target.value.toLowerCase().trim();
+      if(!q){ searchResults.hidden = true; return; }
+      var matches = searchData.filter(function(item){
+        return item.title.toLowerCase().indexOf(q) !== -1 || item.text.indexOf(q) !== -1;
+      });
+      if(matches.length === 0){
+        searchResults.innerHTML = '<div class="search-item">No results found</div>';
+      } else {
+        var html = '';
+        for(var i=0; i<matches.length; i++){
+          html += '<div class="search-item" onclick="location.hash=\'#' + matches[i].id + '\'; document.getElementById(\'searchResults\').hidden=true;">' + matches[i].title + '</div>';
+        }
+        searchResults.innerHTML = html;
+      }
+      searchResults.hidden = false;
+    });
+
+    document.addEventListener('click', function(e){
+      if(!e.target.closest('.search-wrap')){ searchResults.hidden = true; }
+    });
+
+    document.addEventListener('keydown', function(e){
+      if(e.key === '/' && document.activeElement !== searchInput){
+        e.preventDefault();
+        searchInput.focus();
+      }
+      if(e.key === 'Escape'){ searchResults.hidden = true; searchInput.blur(); }
+    });
+  }
+
+  // ---------- Copy buttons ----------
+  function wireCopyButtons(){
+    var btns = document.querySelectorAll('.copy-btn');
+    for(var i=0;i<btns.length;i++){
+      btns[i].addEventListener('click', function(){
+        var btn = this;
+        var codeEl = btn.previousElementSibling;
+        var text = codeEl ? codeEl.textContent : '';
+        var original = btn.textContent;
+        function done(ok){
+          btn.textContent = ok ? 'Copied!' : 'Press Ctrl+C';
+          btn.classList.toggle('copied', ok);
+          setTimeout(function(){ btn.textContent = original; btn.classList.remove('copied'); }, 1500);
+        }
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(text).then(function(){ done(true); }).catch(function(){ done(false); });
+        } else {
+          done(false);
+        }
+      });
+    }
+  }
+
+  function routeFromHash(){
+    // Minor utility if you need to highlight sidebars based on hash
+  }
+
+  // ---------- Init ----------
+  document.addEventListener('DOMContentLoaded', function(){
+    renderPunishmentTable();
+    renderCoC();
+    buildSearchIndex();
+    wireCopyButtons();
+    routeFromHash();
+  });
+</script>
+
+</body>
+</html>
